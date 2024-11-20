@@ -1,0 +1,7 @@
+name: Bank
+version: '1.0-SNAPSHOT'
+main: me.bankplugin.bank.Bank
+api-version: '1.21'
+
+commands:
+  bank:
