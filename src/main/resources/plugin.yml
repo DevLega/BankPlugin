@@ -4,4 +4,9 @@ main: me.bankplugin.bank.Bank
 api-version: '1.21'
 
 commands:
-  bank:
+
+  openbank:
+    permission: bank.openbank
+
+  addmoney:
+    permission: bank.addmoney
