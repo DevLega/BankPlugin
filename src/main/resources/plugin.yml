@@ -1,0 +1,46 @@
+name: Bank
+version: '1.0-SNAPSHOT'
+main: me.bankplugin.bank.Bank
+api-version: '1.21'
+
+commands:
+
+  openbank:
+    permission: bank.openbank
+
+  addmoney:
+    permission: bank.bankmanager
+
+  takemoney:
+    permission: bank.bankmanager
+
+  forgive:
+    description: Простить штраф
+    usage: /<command> <игрок> <номер штрафа>
+  fines:
+    description: Список штрафов игрока
+    usage: /<command> <игрок>
+  fine:
+    subcommands:
+      add:
+        description: Добавить штраф
+      remove:
+        description: Удалить штраф
+      lookup:
+        description: Просмотреть штраф по номеру
+      list:
+        description: Просмотреть все штрафы
+
+permissions:
+
+  bank.bankmanager:
+    default: true
+
+  bank.fine:
+    default: true
+
+  bank.lookup:
+    default: true
+
+  bank.fines:
+    default: true
