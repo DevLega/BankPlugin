@@ -6,88 +6,130 @@ import me.bankplugin.bank.Database.FinesDatabase;
 import me.bankplugin.bank.Handlers.TransferHandler;
 import me.bankplugin.bank.Listeners.BankListener;
 import me.bankplugin.bank.Listeners.ChatListener;
+import me.bankplugin.bank.Listeners.PlayerJoinListener;
+import me.bankplugin.bank.Menu.Menu;
 import me.bankplugin.bank.TabCompleters.FineTabCompleter;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import javax.swing.event.MenuListener;
+import java.nio.file.Paths;
 import java.sql.SQLException;
 
 public final class Bank extends JavaPlugin {
 
     private AccountsDatabase accountsDatabase;
-
     private TransferHandler transferHandler;
     private FinesDatabase finesDatabase;
 
-
     @Override
     public void onEnable() {
-        // Transfer
-        transferHandler = new TransferHandler(this);
-        getServer().getPluginManager().registerEvents(new ChatListener(transferHandler), this);
-
-
-        // SQLite
-
-        try {
-
-            if(!getDataFolder().exists()) {
-                getDataFolder().mkdirs();
+        // Инициализация папки плагина
+        if (!getDataFolder().exists()) {
+            if (getDataFolder().mkdirs()) {
+                getLogger().info("Создана папка для данных плагина.");
             }
-            accountsDatabase = new AccountsDatabase(getDataFolder().getAbsolutePath() + "/banks.db");
-
-        } catch (SQLException ex) {
-            ex.printStackTrace();
-            System.out.println("Failed to connect to the database! " + ex.getMessage());
-            Bukkit.getPluginManager().disablePlugin(this);
         }
 
-        try {
-            finesDatabase = new FinesDatabase(getDataFolder().getAbsolutePath() + "/fines.db");
-            getLogger().info("База данных для штрафов успешно подключена.");
-        } catch (Exception e) {
-            getLogger().severe("Не удалось подключить базу данных для штрафов: " + e.getMessage());
-            Bukkit.getPluginManager().disablePlugin(this);
-            return;
-        }
+        // Подключение баз данных
+        initDatabases();
 
-        TakeMoneyCommand takeMoneyCommand = new TakeMoneyCommand(this);
-        getCommand("openbank").setExecutor(new OpenBankCommand(this));
-        getCommand("addmoney").setExecutor(new AddMoneyCommand(this));
-        getCommand("takemoney").setExecutor(takeMoneyCommand);
+        // Инициализация обработчиков
+        transferHandler = new TransferHandler(this);
 
-        getCommand("forgive").setExecutor(new FineCommands(finesDatabase));
-        getCommand("fines").setExecutor(new FineCommands(finesDatabase));
-        getCommand("fine").setExecutor(new FineCommands(finesDatabase));
+        // Регистрация команд
+        registerCommands();
 
-        getCommand("fine").setTabCompleter(new FineTabCompleter());
+        // Регистрация слушателей событий
+        registerListeners();
 
-        getServer().getPluginManager().registerEvents(new BankListener(this), this);
-    }
-
-    public AccountsDatabase getAccountsDatabase() {
-        return this.accountsDatabase;
-    }
-
-    public TransferHandler getTransferHandler() {
-        return transferHandler;
+        getLogger().info("Плагин успешно включен!");
     }
 
     @Override
     public void onDisable() {
-        // Plugin shutdown logic
+        closeDatabases();
+        getLogger().info("Плагин успешно выключен.");
+    }
 
-        try{
-            accountsDatabase.closeConnection();
+    private void initDatabases() {
+        try {
+            accountsDatabase = new AccountsDatabase(Paths.get(getDataFolder().getAbsolutePath(), "banks.db").toString());
+            getLogger().info("База данных счетов успешно подключена.");
         } catch (SQLException ex) {
+            getLogger().severe("Не удалось подключить базу данных счетов: " + ex.getMessage());
+            ex.printStackTrace();
+            Bukkit.getPluginManager().disablePlugin(this);
+            return;
+        }
+
+        try {
+            finesDatabase = new FinesDatabase(Paths.get(getDataFolder().getAbsolutePath(), "fines.db").toString());
+            getLogger().info("База данных штрафов успешно подключена.");
+        } catch (SQLException ex) {
+            getLogger().severe("Не удалось подключить базу данных штрафов: " + ex.getMessage());
+            ex.printStackTrace();
+            Bukkit.getPluginManager().disablePlugin(this);
+        }
+    }
+
+    private void registerCommands() {
+        if (getCommand("openbank") != null) {
+            getCommand("openbank").setExecutor(new OpenBankCommand(finesDatabase, accountsDatabase, this));
+        }
+        if (getCommand("addmoney") != null) {
+            getCommand("addmoney").setExecutor(new AddMoneyCommand(this));
+        }
+        if (getCommand("takemoney") != null) {
+            getCommand("takemoney").setExecutor(new TakeMoneyCommand(this));
+        }
+        if (getCommand("forgive") != null) {
+            getCommand("forgive").setExecutor(new FineCommands(finesDatabase));
+        }
+        if (getCommand("fines") != null) {
+            getCommand("fines").setExecutor(new FineCommands(finesDatabase));
+        }
+        if (getCommand("fine") != null) {
+            getCommand("fine").setExecutor(new FineCommands(finesDatabase));
+        }
+    }
+
+    private void registerListeners() {
+        getServer().getPluginManager().registerEvents(new ChatListener(transferHandler), this);
+        getServer().getPluginManager().registerEvents(new PlayerJoinListener(finesDatabase, this), this);
+
+        Menu menu = new Menu(finesDatabase, accountsDatabase, this);
+
+        getServer().getPluginManager().registerEvents(new BankListener(finesDatabase, accountsDatabase, this, menu), this);
+    }
+
+    private void closeDatabases() {
+        try {
+            if (accountsDatabase != null) {
+                accountsDatabase.closeConnection();
+                getLogger().info("Соединение с базой данных счетов закрыто.");
+            }
+        } catch (SQLException ex) {
+            getLogger().severe("Ошибка при закрытии соединения с базой данных счетов: " + ex.getMessage());
             ex.printStackTrace();
         }
 
         try {
-            finesDatabase.closeConnection();
-            getLogger().info("Соединение с базой данных закрыто.");
-        } catch (Exception e) {
-            getLogger().severe("Не удалось закрыть соединение с базой данных: " + e.getMessage());
+            if (finesDatabase != null) {
+                finesDatabase.closeConnection();
+                getLogger().info("Соединение с базой данных штрафов закрыто.");
+            }
+        } catch (SQLException ex) {
+            getLogger().severe("Ошибка при закрытии соединения с базой данных штрафов: " + ex.getMessage());
+            ex.printStackTrace();
         }
+    }
+
+    public AccountsDatabase getAccountsDatabase() {
+        return accountsDatabase;
+    }
+
+    public TransferHandler getTransferHandler() {
+        return transferHandler;
     }
 }

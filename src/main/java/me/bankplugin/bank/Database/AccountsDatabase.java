@@ -27,6 +27,27 @@ public class AccountsDatabase {
         }
     }
 
+    public int getPlayerBalance(String playerName) throws SQLException {
+        String query = "SELECT moneys FROM players WHERE username = ?";
+        try (PreparedStatement statement = connection.prepareStatement(query)) {
+            statement.setString(1, playerName);
+            ResultSet resultSet = statement.executeQuery();
+            if (resultSet.next()) {
+                return resultSet.getInt("moneys");
+            }
+        }
+        return 0;
+    }
+
+    public void updateBalance(String playerName, int newBalance) throws SQLException {
+        String query = "UPDATE players SET moneys = ? WHERE username = ?";
+        try (PreparedStatement statement = connection.prepareStatement(query)) {
+            statement.setInt(1, newBalance);
+            statement.setString(2, playerName);
+            statement.executeUpdate();
+        }
+    }
+
     public void addPlayer(Player p) throws SQLException {
         try(PreparedStatement preparedStatement = connection.prepareStatement("INSERT INTO players (uuid, username, moneys) VALUES (?, ?, 0)")) {
             preparedStatement.setString(1, p.getUniqueId().toString());
@@ -59,7 +80,7 @@ public class AccountsDatabase {
 
     public int getPlayerMoneys(Player player) throws SQLException {
         if (!playerExists(player)) {
-            addPlayer(player); // Автоматически добавляем игрока
+            addPlayer(player);
         }
 
         int balance = 0;
@@ -72,22 +93,20 @@ public class AccountsDatabase {
         try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
             preparedStatement.setString(1, player.getUniqueId().toString());
 
-            // Выполнение запроса и получение результата
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
                 if (resultSet.next()) {
                     balance = resultSet.getInt("moneys");
                 } else {
-                    // Если игрок не найден в базе данных
                     System.out.println("Player not found in the database: " + player.getUniqueId());
-                    return 0;  // или можно выбросить исключение, если это критичная ошибка
+                    return 0;
                 }
             } catch (SQLException e) {
                 System.out.println("Error while processing result set: " + e.getMessage());
-                throw e;  // Повторно выбрасываем исключение
+                throw e;
             }
         } catch (SQLException e) {
             System.out.println("Error while executing SQL query: " + e.getMessage());
-            throw e;  // Повторно выбрасываем исключение
+            throw e;
         }
 
         return balance;

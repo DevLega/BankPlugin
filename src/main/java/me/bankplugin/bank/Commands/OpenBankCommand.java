@@ -1,6 +1,8 @@
 package me.bankplugin.bank.Commands;
 
 import me.bankplugin.bank.Bank;
+import me.bankplugin.bank.Database.AccountsDatabase;
+import me.bankplugin.bank.Database.FinesDatabase;
 import me.bankplugin.bank.Menu.Menu;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
@@ -9,14 +11,17 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
 public class OpenBankCommand implements CommandExecutor {
-    private final Bank bankPlugin;
 
-    public OpenBankCommand(Bank bankPlugin) {
-        if (bankPlugin == null) {
-            throw new IllegalArgumentException("bankPlugin не может быть null");
-        }
+    private final Bank bankPlugin;
+    private final FinesDatabase finesDatabase;
+    private final AccountsDatabase accountsDatabase;
+
+    public OpenBankCommand(FinesDatabase finesDatabase, AccountsDatabase accountsDatabase, Bank bankPlugin) {
+        this.finesDatabase = finesDatabase;
+        this.accountsDatabase = accountsDatabase;
         this.bankPlugin = bankPlugin;
     }
+
     @Override
     public boolean onCommand(CommandSender commandSender, Command command, String s, String[] strings) {
         if (!(commandSender instanceof Player)) {
@@ -26,8 +31,7 @@ public class OpenBankCommand implements CommandExecutor {
 
         Player player = (Player) commandSender;
 
-        // Создаем экземпляр Menu и передаем bankPlugin
-        Menu menu = new Menu(bankPlugin);
+        Menu menu = new Menu(finesDatabase, accountsDatabase, bankPlugin);
         player.openInventory(menu.getBankMenu(player));
 
         return true;

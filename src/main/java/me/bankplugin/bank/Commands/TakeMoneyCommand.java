@@ -35,7 +35,13 @@ public class TakeMoneyCommand implements CommandExecutor {
             return true;
         }
 
-        // Проверка аргументов
+        Player player = (Player) commandSender;
+
+        if (!player.hasPermission("bank.bankmanager")) {
+            player.sendMessage(ChatColor.RED + "У вас недостаточно прав для выполнения этой команды.");
+            return true;
+        }
+
         if (strings.length != 2) {
             banker.sendMessage(ChatColor.RED + "Использование: /takemoney <игрок> <сумма>");
             return true;
@@ -47,13 +53,11 @@ public class TakeMoneyCommand implements CommandExecutor {
             return true;
         }
 
-        // Проверка расстояния
         if (banker.getLocation().distance(target.getLocation()) > 10) {
             banker.sendMessage(ChatColor.RED + "Игрок находится слишком далеко.");
             return true;
         }
 
-        // Проверка суммы
         int amount;
         try {
             amount = Integer.parseInt(strings[1]);
@@ -66,7 +70,6 @@ public class TakeMoneyCommand implements CommandExecutor {
             return true;
         }
 
-        // Проверка баланса игрока
         try {
             int targetBalance = bankPlugin.getAccountsDatabase().getPlayerMoneys(target);
             if (targetBalance < amount) {
@@ -82,14 +85,11 @@ public class TakeMoneyCommand implements CommandExecutor {
         try {
             int targetBalance = bankPlugin.getAccountsDatabase().getPlayerMoneys(target);
 
-            // Обновляем базы данных
             bankPlugin.getAccountsDatabase().updatePlayerMoneys(target, targetBalance - amount);
 
-            // Выдача предмета банкиру
             ItemStack diamonds = new ItemStack(Material.DEEPSLATE_DIAMOND_ORE, amount);
             banker.getInventory().addItem(diamonds);
 
-            // Сообщения и звуки
             banker.sendMessage(ChatColor.GREEN + "Списание успешно. Вы получили " + ChatColor.GOLD + amount + " АР.");
             banker.playSound(banker.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 1.0f);
 

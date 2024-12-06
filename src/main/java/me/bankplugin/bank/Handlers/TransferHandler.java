@@ -46,12 +46,11 @@ public class TransferHandler {
         if (!activeTransfers.containsKey(playerId)) return;
 
         TransferState state = activeTransfers.get(playerId);
-        event.setCancelled(true); // Отменяем вывод сообщения в чат
+        event.setCancelled(true);
 
         String message = event.getMessage();
 
         if (state.isAwaitingAmount()) {
-            // Проверяем ввод суммы
             try {
                 int amount = Integer.parseInt(message);
                 int playerBalance = bankPlugin.getAccountsDatabase().getPlayerMoneys(player);
@@ -65,11 +64,10 @@ public class TransferHandler {
                 if (amount > playerBalance) {
                     player.sendMessage(ChatColor.RED + "У вас недостаточно средств.");
                     player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
-                    activeTransfers.remove(playerId); // Завершаем процесс
+                    activeTransfers.remove(playerId);
                     return;
                 }
 
-                // Завершаем перевод
                 Player target = state.getTargetPlayer();
                 bankPlugin.getAccountsDatabase().updatePlayerMoneys(player, playerBalance - amount);
                 int targetBalance = bankPlugin.getAccountsDatabase().getPlayerMoneys(target);
@@ -89,7 +87,6 @@ public class TransferHandler {
                 e.printStackTrace();
             }
         } else {
-            // Проверяем никнейм
             Player target = Bukkit.getPlayer(message);
 
             if (target == null || !target.isOnline()) {

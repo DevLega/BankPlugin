@@ -1,6 +1,9 @@
 package me.bankplugin.bank.Menu;
 
 import me.bankplugin.bank.Bank;
+import me.bankplugin.bank.Database.AccountsDatabase;
+import me.bankplugin.bank.Database.FinesDatabase;
+import me.bankplugin.bank.Models.Fine;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
@@ -8,6 +11,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.inventory.meta.SkullMeta;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -16,9 +20,12 @@ import java.util.List;
 public class Menu {
 
     private final Bank bankPlugin;
+    private final FinesDatabase finesDatabase;
+    private final AccountsDatabase accountsDatabase;
 
-    // Конструктор класса Menu для получения экземпляра плагина
-    public Menu(Bank bankPlugin) {
+    public Menu(FinesDatabase finesDatabase, AccountsDatabase accountsDatabase, Bank bankPlugin) {
+        this.finesDatabase = finesDatabase;
+        this.accountsDatabase = accountsDatabase;
         this.bankPlugin = bankPlugin;
     }
 
@@ -42,7 +49,7 @@ public class Menu {
 
         ItemMeta paneMeta = grayPane.getItemMeta();
         if (paneMeta != null) {
-            paneMeta.setDisplayName(" "); // Пустое имя, чтобы не мешать
+            paneMeta.setDisplayName(" ");
             grayPane.setItemMeta(paneMeta);
         }
 
@@ -70,7 +77,7 @@ public class Menu {
         } catch (SQLException e) {
             e.printStackTrace();
             player.sendMessage(ChatColor.RED + "Ошибка при получении данных о балансе игрока");
-            return null;  // Возвращаем null, если произошла ошибка
+            return null;
         }
 
 
@@ -136,51 +143,54 @@ public class Menu {
         return bankInventory;
     }
 
-    public Inventory getFineMenu(Player player) {
+
+    public Inventory getFineMenu(Player player, FinesDatabase finesDatabase, AccountsDatabase accountsDatabase) {
         Inventory fineInventory = Bukkit.createInventory(player, 45, "Штрафы");
 
-        // BD
-
-        //BUTTONS
-
-        ItemStack titleHead = new ItemStack(Material.PLAYER_HEAD);
-        ItemStack fineHead = new ItemStack(Material.PLAYER_HEAD);
-
-
-        ItemStack grayPane = new ItemStack(Material.GRAY_STAINED_GLASS_PANE);
-
-        //META
-        ItemMeta titleHeadMeta = titleHead.getItemMeta();
-        titleHeadMeta.setDisplayName(ChatColor.GOLD + "Банк");
-        titleHead.setItemMeta(titleHeadMeta);
-
-
-        ItemMeta fineHeadMeta = fineHead.getItemMeta();
-        fineHeadMeta.setDisplayName(ChatColor.GOLD + "Штраф " + ChatColor.GRAY + "#");
-        List<String> loresList = new ArrayList<>();
-        loresList.add(ChatColor.GREEN + "Сумма штрафа: " + ChatColor.GOLD + " АР");
-        loresList.add(ChatColor.GREEN + "Пострадавший: " + ChatColor.GOLD + "НИК");
-        fineHeadMeta.setLore(loresList);
-        fineHead.setItemMeta(fineHeadMeta);
-
-        //GLASS
-
-        ItemMeta paneMeta = grayPane.getItemMeta();
-        if (paneMeta != null) {
-            paneMeta.setDisplayName(" ");
-            grayPane.setItemMeta(paneMeta);
+        ItemStack finesTitle = new ItemStack(Material.BOOK);
+        ItemMeta finesTitleMeta = finesTitle.getItemMeta();
+        if (finesTitleMeta != null) {
+            finesTitleMeta.setDisplayName(ChatColor.GOLD + "Ваши штрафы");
+            finesTitle.setItemMeta(finesTitleMeta);
         }
+        fineInventory.setItem(4, finesTitle);
 
-        for (int i = 0; i < fineInventory.getSize(); i++) {
-            if (fineInventory.getItem(i) == null) {
-                fineInventory.setItem(i, grayPane);
+        try {
+            List<Integer> playerFineIds = finesDatabase.getOffenderFines(player.getName());
+
+            int slotIndex = 9;
+            for (int fineId : playerFineIds) {
+                if (slotIndex >= fineInventory.getSize()) break;
+
+                Fine fine = finesDatabase.getFineById(fineId);
+                if (fine == null) continue;
+
+                ItemStack fineItem = new ItemStack(Material.PAPER);
+                ItemMeta fineMeta = fineItem.getItemMeta();
+                if (fineMeta != null) {
+                    fineMeta.setDisplayName(ChatColor.GOLD + "Штраф " + ChatColor.DARK_GRAY + "#" + fine.getId());
+                    fineMeta.setLore(List.of(
+                            ChatColor.RED + "Сумма: " + ChatColor.GOLD + fine.getAmount() + " АР",
+                            ChatColor.RED + "Пострадавший: " + ChatColor.GOLD + fine.getVictim()
+                    ));
+                    fineItem.setItemMeta(fineMeta);
+                }
+                fineInventory.setItem(slotIndex++, fineItem);
             }
+
+            if (playerFineIds.isEmpty()) {
+                ItemStack noFinesItem = new ItemStack(Material.BARRIER);
+                ItemMeta noFinesMeta = noFinesItem.getItemMeta();
+                if (noFinesMeta != null) {
+                    noFinesMeta.setDisplayName(ChatColor.YELLOW + "У вас нет штрафов!");
+                    noFinesItem.setItemMeta(noFinesMeta);
+                }
+                fineInventory.setItem(22, noFinesItem);
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
         }
-
-        //MENU
-
-        fineInventory.setItem(4, titleHead);
-        fineInventory.setItem(20, fineHead);
 
         return fineInventory;
     }

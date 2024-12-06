@@ -24,12 +24,18 @@ public class AddMoneyCommand implements CommandExecutor {
     @Override
     public boolean onCommand(CommandSender commandSender, Command command, String s, String[] strings) {
 
+        Player player = (Player) commandSender;
+
+        if (!player.hasPermission("bank.bankmanager")) {
+            player.sendMessage(ChatColor.RED + "У вас недостаточно прав для выполнения этой команды.");
+            return true;
+        }
+
         if (strings.length < 2) {
             commandSender.sendMessage(ChatColor.RED + "Используйте /bank:addmoney [Игрок] [Количество]");
             return true;
         }
 
-        // Получаем игрока
         String playerName = strings[0];
         Player target = Bukkit.getPlayer(playerName);
         if (target == null) {
@@ -37,7 +43,6 @@ public class AddMoneyCommand implements CommandExecutor {
             return true;
         }
 
-        // Получаем количество
         int amount;
         try {
             amount = Integer.parseInt(strings[1]);
@@ -51,21 +56,15 @@ public class AddMoneyCommand implements CommandExecutor {
             return true;
         }
 
-        Player player = (Player) commandSender;
-
-        // Проверяем наличие блоков deepslate_diamond_ore
         int playerOreCount = countItem(player, Material.DEEPSLATE_DIAMOND_ORE);
         if (playerOreCount < amount) {
             commandSender.sendMessage(ChatColor.RED + "У вас недостаточно " + ChatColor.GOLD + "АР" + ChatColor.RED + ". Требуется " + ChatColor.GOLD + amount + " АР" + ChatColor.RED + ", у вас " + ChatColor.GOLD + playerOreCount + " АР");
             return true;
         }
 
-        // Убираем блоки из инвентаря
 
-
-        // Добавляем деньги к балансу игрока
         if (player.getLocation().distance(target.getLocation()) <= 10) {
-            // Целевой игрок находится в радиусе 10 блоков
+
             try {
                 removeItem(player, Material.DEEPSLATE_DIAMOND_ORE, amount);
                 int currentMoney = bankPlugin.getAccountsDatabase().getPlayerMoneys(target);
@@ -81,7 +80,6 @@ public class AddMoneyCommand implements CommandExecutor {
                 player.sendMessage(ChatColor.RED + "Произошла ошибка при обновлении баланса игрока. Попробуйте позже.");
             }
         } else {
-            // Игрок слишком далеко
             player.sendMessage(ChatColor.RED + "Игрок " + ChatColor.GOLD + target.getName() + ChatColor.RED + " находится слишком далеко. Подойди ближе (до 10 блоков).");
         }
 
@@ -98,9 +96,6 @@ public class AddMoneyCommand implements CommandExecutor {
         return count;
     }
 
-    /**
-     * Удаляет указанное количество предметов из инвентаря игрока.
-     */
     private void removeItem(Player player, Material material, int amount) {
         for (ItemStack item : player.getInventory().getContents()) {
             if (item != null && item.getType() == material) {

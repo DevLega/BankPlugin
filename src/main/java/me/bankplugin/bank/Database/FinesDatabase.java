@@ -1,7 +1,6 @@
 package me.bankplugin.bank.Database;
 
 import me.bankplugin.bank.Models.Fine;
-import org.bukkit.entity.Player;
 
 import java.sql.*;
 import java.text.ParseException;
@@ -44,25 +43,48 @@ public class FinesDatabase {
         try (PreparedStatement preparedStatement = connection.prepareStatement(
                 "INSERT INTO fines (amount, officer, offender, reason, victim, date_issued) VALUES (?, ?, ?, ?, ?, ?)")) {
             preparedStatement.setInt(1, amount);
-            preparedStatement.setString(2, victim);  // пострадавший выписывает штраф
+            preparedStatement.setString(2, victim);
             preparedStatement.setString(3, offender);
             preparedStatement.setString(4, reason);
-            preparedStatement.setString(5, victim);  // пострадавший получает деньги
+            preparedStatement.setString(5, victim);
             preparedStatement.setString(6, dateIssued);
             preparedStatement.executeUpdate();
         }
     }
 
-    public List<Integer> getAllFineIds() throws SQLException {
-        List<Integer> fineIds = new ArrayList<>();
-        String query = "SELECT id FROM fines";
-        try (Statement statement = connection.createStatement();
-             ResultSet resultSet = statement.executeQuery(query)) {
-            while (resultSet.next()) {
-                fineIds.add(resultSet.getInt("id"));
+    public int getLastFineId() throws SQLException {
+        String sql = "SELECT id FROM fines ORDER BY id DESC LIMIT 1";
+        try (PreparedStatement statement = connection.prepareStatement(sql);
+             ResultSet resultSet = statement.executeQuery()) {
+            if (resultSet.next()) {
+                return resultSet.getInt("id");
+            } else {
+                throw new SQLException("Не удалось найти последний ID штрафа.");
             }
         }
-        return fineIds;
+    }
+
+    public boolean isOverdueForOneMinute(String offender, int fineId) throws SQLException {
+        String query = "SELECT date_issued FROM fines WHERE id = ? AND offender = ?";
+        try (PreparedStatement statement = connection.prepareStatement(query)) {
+            statement.setInt(1, fineId);
+            statement.setString(2, offender);
+            ResultSet resultSet = statement.executeQuery();
+
+            if (resultSet.next()) {
+                String dateIssued = resultSet.getString("date_issued");
+                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+                try {
+                    Date issuedDate = sdf.parse(dateIssued);
+                    long diffInMillies = new Date().getTime() - issuedDate.getTime();
+                    long diffInSeconds = diffInMillies / (24 * 60 * 60 * 1000);
+                    return diffInSeconds >= 3;
+                } catch (ParseException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+        return false;
     }
 
     public void removeFine(int fineId) throws SQLException {
@@ -80,8 +102,8 @@ public class FinesDatabase {
             if (rs.next()) {
                 return new Fine(
                         rs.getInt("id"),
-                        rs.getString("playerName"),
-                        rs.getDouble("amount"),
+                        rs.getString("offender"),
+                        rs.getInt("amount"),
                         rs.getString("victim")
                 );
             }
@@ -119,7 +141,19 @@ public class FinesDatabase {
         return fineIds;
     }
 
+    public List<Integer> getOffenderFines(String offenderName) throws SQLException {
+        List<Integer> fines = new ArrayList<>();
+        String query = "SELECT id FROM fines WHERE offender = ?";
 
+        try (PreparedStatement statement = connection.prepareStatement(query)) {
+            statement.setString(1, offenderName);
+            ResultSet resultSet = statement.executeQuery();
+            while (resultSet.next()) {
+                fines.add(resultSet.getInt("id"));
+            }
+        }
+        return fines;
+    }
 
     public String getFineDetails(int fineId) throws SQLException {
         try (PreparedStatement preparedStatement = connection.prepareStatement(
@@ -127,12 +161,12 @@ public class FinesDatabase {
             preparedStatement.setInt(1, fineId);
             ResultSet resultSet = preparedStatement.executeQuery();
             if (resultSet.next()) {
-                return "Нарушитель: " + resultSet.getString("offender") + ", Размер штрафа: " + resultSet.getInt("amount")
-                        + ", Причина: " + resultSet.getString("reason") + ", Пострадавший: " + resultSet.getString("victim")
-                        + ", Дата: " + resultSet.getString("date_issued");
+                return "\n§aНарушитель: §6" + resultSet.getString("offender") + "\n§aРазмер штрафа: §6" + resultSet.getInt("amount")
+                        + "\n§aПричина: §6" + resultSet.getString("reason") + "\n§aПострадавший: §6" + resultSet.getString("victim")
+                        + "\n§aДата: §6" + resultSet.getString("date_issued");
             }
         }
-        return "Штраф не найден";
+        return "§cШтраф не найден";
     }
 
     public List<String> getAllFines() throws SQLException {
@@ -140,8 +174,7 @@ public class FinesDatabase {
         try (Statement statement = connection.createStatement()) {
             ResultSet resultSet = statement.executeQuery("SELECT * FROM fines");
             while (resultSet.next()) {
-                fines.add("Штраф #" + resultSet.getInt("id") + " для " + resultSet.getString("offender")
-                        + " на сумму " + resultSet.getInt("amount") + ", Причина: " + resultSet.getString("reason"));
+                fines.add("§aШтраф §8#" + resultSet.getInt("id") + " §aдля §6" + resultSet.getString("offender") + "\n");
             }
         }
         return fines;
